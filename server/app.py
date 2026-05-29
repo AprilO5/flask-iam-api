@@ -7,17 +7,65 @@ from sqlalchemy.exc import IntegrityError
 from config import app, db, api
 from models import User, Recipe, UserSchema, RecipeSchema
 
+user_schema = UserSchema()
+
+
 class Signup(Resource):
-    pass
+
+    def post(self):
+        data = request.get_json()
+
+        try:
+            user = User(
+                username=data.get('username'),
+                image_url=data.get('image_url'),
+                bio=data.get('bio'),
+            )
+            user.password_hash = data.get('password')
+
+            db.session.add(user)
+            db.session.commit()
+
+            session['user_id'] = user.id
+
+            return user_schema.dump(user), 201
+
+        except (IntegrityError, ValueError, TypeError):
+            db.session.rollback()
+            return {'error': '422 Unprocessable Entity'}, 422
 
 class CheckSession(Resource):
-    pass
+
+    def get(self):
+        user = User.query.filter(User.id == session.get('user_id')).first()
+
+        if user:
+            return user_schema.dump(user), 200
+
+        return {'error': '401 Unauthorized'}, 401
 
 class Login(Resource):
-    pass
+
+    def post(self):
+        data = request.get_json()
+
+        user = User.query.filter(User.username == data.get('username')).first()
+
+        if user and user.authenticate(data.get('password')):
+            session['user_id'] = user.id
+            return user_schema.dump(user), 200
+
+        return {'error': '401 Unauthorized'}, 401
 
 class Logout(Resource):
-    pass
+
+    def delete(self):
+        if not session.get('user_id'):
+            return {'error': '401 Unauthorized'}, 401
+
+        session['user_id'] = None
+
+        return {}, 204
 
 class RecipeIndex(Resource):
     pass
