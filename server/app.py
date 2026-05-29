@@ -8,6 +8,8 @@ from config import app, db, api
 from models import User, Recipe, UserSchema, RecipeSchema
 
 user_schema = UserSchema()
+recipes_schema = RecipeSchema(many=True)
+recipe_schema = RecipeSchema()
 
 
 class Signup(Resource):
@@ -68,7 +70,41 @@ class Logout(Resource):
         return {}, 204
 
 class RecipeIndex(Resource):
-    pass
+
+    def get(self):
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return {'error': '401 Unauthorized'}, 401
+
+        recipes = Recipe.query.filter(Recipe.user_id == user_id).all()
+
+        return recipes_schema.dump(recipes), 200
+
+    def post(self):
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return {'error': '401 Unauthorized'}, 401
+
+        data = request.get_json()
+
+        try:
+            recipe = Recipe(
+                title=data.get('title'),
+                instructions=data.get('instructions'),
+                minutes_to_complete=data.get('minutes_to_complete'),
+                user_id=user_id,
+            )
+
+            db.session.add(recipe)
+            db.session.commit()
+
+            return recipe_schema.dump(recipe), 201
+
+        except (IntegrityError, ValueError, TypeError):
+            db.session.rollback()
+            return {'error': '422 Unprocessable Entity'}, 422
 
 api.add_resource(Signup, '/signup', endpoint='signup')
 api.add_resource(CheckSession, '/check_session', endpoint='check_session')

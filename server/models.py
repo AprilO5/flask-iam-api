@@ -9,9 +9,11 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, nullable=False, unique=True)
-    _password_hash = db.Column(db.String, nullable=False)
+    _password_hash = db.Column(db.String)
     image_url = db.Column(db.String)
     bio = db.Column(db.String)
+
+    recipes = db.relationship('Recipe', back_populates='user')
 
     @hybrid_property
     def password_hash(self):
@@ -28,8 +30,23 @@ class User(db.Model):
         )
 
 
-class Recipe:
-    pass
+class Recipe(db.Model):
+    __tablename__ = 'recipes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String, nullable=False)
+    instructions = db.Column(db.String, nullable=False)
+    minutes_to_complete = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    user = db.relationship('User', back_populates='recipes')
+
+    @validates('instructions')
+    def validate_instructions(self, key, instructions):
+        if not instructions or len(instructions) < 50:
+            raise ValueError('Instructions must be at least 50 characters long.')
+
+        return instructions
 
 
 class UserSchema(Schema):
@@ -39,4 +56,8 @@ class UserSchema(Schema):
     bio = fields.String()
 
 class RecipeSchema(Schema):
-    pass
+    id = fields.Int()
+    title = fields.String()
+    instructions = fields.String()
+    minutes_to_complete = fields.Int()
+    user_id = fields.Int()
